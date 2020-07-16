@@ -4,23 +4,34 @@ on: [pull_request]
 
 jobs:
   build:
-    runs-on: ${{ matrix.platform }}
+    name: >-
+      ${{ matrix.python-version }}
+      /
+      ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
     strategy:
       max-parallel: 8
       matrix:
         # https://help.github.com/articles/virtual-environments-for-github-actions
-        platform:
+        os:
           - ubuntu-latest
           - macos-latest
           - windows-latest
         python-version: [3.6, 3.7, 3.8]
-
+        include:
+           # Dev versions
+           - { python-version: 3.9-dev, os: ubuntu-20.04 }
     steps:
     - uses: actions/checkout@v1
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v1
+    # From setuptools: https://github.com/pypa/setuptools/pull/2253/files
+    - name: Set up Python ${{ matrix.python-version }} (deadsnakes)
+      uses: deadsnakes/action@v1.0.0
+      if: endsWith(matrix.python-version, '-dev')
       with:
         python-version: ${{ matrix.python-version }}
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v1.1.1
+      if: "!endsWith(matrix.python-version, '-dev')"
     - name: RC.exe  # https://github.com/actions/virtual-environments/issues/294#issuecomment-588090582
       if: runner.os == 'Windows'
       run: |
@@ -40,6 +51,10 @@ jobs:
       run: |
         python -m pip install --upgrade setuptools pip wheel
         python -m pip install tox-gh-actions
+    - name: pwd
+      run: pwd
+    - name: ls
+      run: ls
     - name: Test with tox
       run: tox -q -p auto
     - name: Regression
